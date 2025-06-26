@@ -18,12 +18,11 @@ import { useState } from "react";
 import { useAppContext } from "../../lib/store";
 
 export default function SettingsPage() {
-  const { state, dispatch } = useAppContext();
-  const { paymentMethods } = state;
+  const { paymentMethods, addPaymentMethod } = useAppContext();
   const [newMethodName, setNewMethodName] = useState("");
   const toast = useToast();
 
-  const handleAddMethod = () => {
+  const handleAddMethod = async () => {
     if (!newMethodName) {
       toast({
         title: "Erro",
@@ -35,10 +34,7 @@ export default function SettingsPage() {
       return;
     }
 
-    dispatch({
-      type: "ADD_PAYMENT_METHOD",
-      payload: { name: newMethodName },
-    });
+    await addPaymentMethod({ name: newMethodName });
 
     setNewMethodName("");
 

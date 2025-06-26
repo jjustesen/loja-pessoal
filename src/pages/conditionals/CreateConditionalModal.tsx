@@ -32,7 +32,7 @@ import {
 import { useState } from "react";
 import { useAppContext } from "../../lib/store";
 import { nanoid } from "nanoid";
-import type { Product, Customer, ConditionalProduct } from "../../types";
+import type { ConditionalProduct } from "../../types";
 
 interface CreateConditionalModalProps {
   isOpen: boolean;
@@ -43,8 +43,7 @@ export function CreateConditionalModal({
   isOpen,
   onClose,
 }: CreateConditionalModalProps) {
-  const { state, dispatch } = useAppContext();
-  const { products, customers } = state;
+  const { products, customers, addConditional } = useAppContext();
   const toast = useToast();
 
   const [barcode, setBarcode] = useState("");
@@ -121,7 +120,7 @@ export function CreateConditionalModal({
     setConditionalProducts(updatedProducts);
   };
 
-  const handleCreateConditional = () => {
+  const handleCreateConditional = async () => {
     if (!selectedCustomerId) {
       toast({
         title: "Erro",
@@ -164,10 +163,7 @@ export function CreateConditionalModal({
       createdAt: new Date().toISOString(),
     };
 
-    dispatch({
-      type: "ADD_CONDITIONAL",
-      payload: newConditional,
-    });
+    await addConditional(newConditional);
 
     toast({
       title: "Condicional criado",

@@ -43,13 +43,14 @@ export function ReturnConditionalModal({
   onClose,
   conditional,
 }: ReturnConditionalModalProps) {
-  const { dispatch } = useAppContext();
+  const { updateConditionalProductReturn, completeConditional } =
+    useAppContext();
   const toast = useToast();
 
   const [barcode, setBarcode] = useState("");
   const [isManualMode, setIsManualMode] = useState(false);
 
-  const handleBarcodeReturn = () => {
+  const handleBarcodeReturn = async () => {
     if (!barcode.trim()) {
       toast({
         title: "Erro",
@@ -93,13 +94,7 @@ export function ReturnConditionalModal({
     }
 
     // Marca o produto como devolvido
-    dispatch({
-      type: "UPDATE_CONDITIONAL_PRODUCT_RETURN",
-      payload: {
-        conditionalId: conditional.id,
-        productBarcode: barcode.trim(),
-      },
-    });
+    await updateConditionalProductReturn(conditional.id, barcode.trim());
 
     toast({
       title: "Produto devolvido",
@@ -112,14 +107,11 @@ export function ReturnConditionalModal({
     setBarcode("");
   };
 
-  const handleManualToggle = (productBarcode: string, returned: boolean) => {
-    dispatch({
-      type: "UPDATE_CONDITIONAL_PRODUCT_RETURN",
-      payload: {
-        conditionalId: conditional.id,
-        productBarcode: productBarcode,
-      },
-    });
+  const handleManualToggle = async (
+    productBarcode: string,
+    returned: boolean
+  ) => {
+    await updateConditionalProductReturn(conditional.id, productBarcode);
 
     const product = conditional.products.find(
       (cp) => cp.product.barcode === productBarcode
@@ -137,13 +129,8 @@ export function ReturnConditionalModal({
     });
   };
 
-  const handleCompleteReturn = () => {
-    dispatch({
-      type: "COMPLETE_CONDITIONAL",
-      payload: {
-        conditionalId: conditional.id,
-      },
-    });
+  const handleCompleteReturn = async () => {
+    await completeConditional(conditional.id);
 
     const returnedCount = conditional.products.filter(
       (cp) => cp.returned

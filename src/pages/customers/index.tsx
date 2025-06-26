@@ -18,14 +18,13 @@ import { useState } from "react";
 import { useAppContext } from "../../lib/store";
 
 export default function CustomersPage() {
-  const { state, dispatch } = useAppContext();
-  const { customers } = state;
+  const { customers, addCustomer } = useAppContext();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const toast = useToast();
 
-  const handleAddCustomer = () => {
+  const handleAddCustomer = async () => {
     if (!name) {
       toast({
         title: "Erro",
@@ -37,14 +36,7 @@ export default function CustomersPage() {
       return;
     }
 
-    dispatch({
-      type: "ADD_CUSTOMER",
-      payload: {
-        name,
-        phone,
-        email,
-      },
-    });
+    await addCustomer({ name, phone, email });
 
     // Clear form
     setName("");

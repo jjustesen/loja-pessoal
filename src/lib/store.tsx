@@ -1,4 +1,10 @@
-import { type ReactNode, createContext, useContext, useReducer } from "react";
+import {
+  type ReactNode,
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+} from "react";
 import type {
   Product,
   Customer,
@@ -6,17 +12,17 @@ import type {
   Sale,
   Conditional,
 } from "../types";
-import { nanoid } from "nanoid";
+import { db } from "./firebase";
+import {
+  collection,
+  doc,
+  addDoc,
+  updateDoc,
+  onSnapshot,
+  getDoc,
+} from "firebase/firestore";
 
-// --- State ---
-interface AppState {
-  products: Product[];
-  customers: Customer[];
-  paymentMethods: PaymentMethod[];
-  sales: Sale[];
-  conditionals: Conditional[];
-}
-
+// Métodos padrão de pagamento
 const defaultPaymentMethods: PaymentMethod[] = [
   { id: "dinheiro", name: "Dinheiro" },
   { id: "credito", name: "Cartão de Crédito" },
@@ -26,307 +32,299 @@ const defaultPaymentMethods: PaymentMethod[] = [
   { id: "boleto", name: "Boleto" },
 ];
 
-const initialState: AppState = {
-  products: [],
-  customers: [],
-  paymentMethods: defaultPaymentMethods,
-  sales: [],
-  conditionals: [],
-};
-
-// --- Actions ---
-type Action =
-  | { type: "ADD_PRODUCT"; payload: Omit<Product, "createdAt"> }
-  | { type: "ADD_CUSTOMER"; payload: Omit<Customer, "id" | "createdAt"> }
-  | { type: "ADD_PAYMENT_METHOD"; payload: Omit<PaymentMethod, "id"> }
-  | { type: "ADD_SALE"; payload: Sale }
-  | {
-      type: "UPDATE_INSTALLMENT_STATUS";
-      payload: { saleId: string; installmentId: string };
-    }
-  | {
-      type: "PAY_INSTALLMENT_PARTIAL";
-      payload: { saleId: string; installmentId: string; paidAmount: number };
-    }
-  | { type: "ADD_CONDITIONAL"; payload: Conditional }
-  | {
-      type: "UPDATE_CONDITIONAL_PRODUCT_RETURN";
-      payload: { conditionalId: string; productBarcode: string };
-    }
-  | {
-      type: "COMPLETE_CONDITIONAL";
-      payload: { conditionalId: string };
-    };
-
-// --- Reducer ---
-const appReducer = (state: AppState, action: Action): AppState => {
-  switch (action.type) {
-    case "ADD_PRODUCT":
-      return {
-        ...state,
-        products: [
-          ...state.products,
-          { ...action.payload, createdAt: new Date().toISOString() },
-        ],
-      };
-    case "ADD_CUSTOMER":
-      return {
-        ...state,
-        customers: [
-          ...state.customers,
-          {
-            ...action.payload,
-            id: nanoid(),
-            createdAt: new Date().toISOString(),
-          },
-        ],
-      };
-    case "ADD_PAYMENT_METHOD":
-      return {
-        ...state,
-        paymentMethods: [
-          ...state.paymentMethods,
-          { ...action.payload, id: nanoid() },
-        ],
-      };
-    case "ADD_SALE":
-      return {
-        ...state,
-        sales: [...state.sales, action.payload],
-      };
-    case "UPDATE_INSTALLMENT_STATUS": {
-      const { saleId, installmentId } = action.payload;
-      return {
-        ...state,
-        sales: state.sales.map((sale) => {
-          if (sale.id === saleId) {
-            return {
-              ...sale,
-              installments: sale.installments?.map((inst) => {
-                if (inst.id === installmentId) {
-                  return {
-                    ...inst,
-                    status: "paid",
-                    paymentDate: new Date().toISOString(),
-                  };
-                }
-                return inst;
-              }),
-            };
-          }
-          return sale;
-        }),
-      };
-    }
-    case "PAY_INSTALLMENT_PARTIAL": {
-      const { saleId, installmentId, paidAmount } = action.payload;
-      return {
-        ...state,
-        sales: state.sales.map((sale) => {
-          if (sale.id === saleId && sale.installments) {
-            const currentInstallments = [...sale.installments];
-            const currentInstIndex = currentInstallments.findIndex(
-              (inst) => inst.id === installmentId
-            );
-
-            if (currentInstIndex === -1) return sale;
-
-            const currentInst = currentInstallments[currentInstIndex];
-            const remainingValue =
-              currentInst.value - (currentInst.paidAmount || 0);
-
-            // Se o valor pago é igual ou maior que o valor restante
-            if (paidAmount >= remainingValue) {
-              currentInstallments[currentInstIndex] = {
-                ...currentInst,
-                paidAmount: currentInst.value,
-                status: "paid",
-                paymentDate: new Date().toISOString(),
-              };
-
-              // Se pagou mais que o necessário, distribui o excesso
-              if (paidAmount > remainingValue) {
-                const excess = paidAmount - remainingValue;
-                let remainingExcess = excess;
-
-                // Encontra parcelas pendentes posteriores
-                const pendingInstallments = currentInstallments
-                  .slice(currentInstIndex + 1)
-                  .filter((inst) => inst.status === "pending");
-
-                if (pendingInstallments.length > 0) {
-                  const totalPendingValue = pendingInstallments.reduce(
-                    (sum, inst) => sum + (inst.value - (inst.paidAmount || 0)),
-                    0
-                  );
-
-                  if (remainingExcess >= totalPendingValue) {
-                    // Paga todas as parcelas restantes
-                    pendingInstallments.forEach((inst) => {
-                      const instIndex = currentInstallments.findIndex(
-                        (i) => i.id === inst.id
-                      );
-                      currentInstallments[instIndex] = {
-                        ...inst,
-                        paidAmount: inst.value,
-                        status: "paid",
-                        paymentDate: new Date().toISOString(),
-                      };
-                    });
-                  } else {
-                    // Distribui proporcionalmente
-                    pendingInstallments.forEach((inst) => {
-                      if (remainingExcess > 0) {
-                        const instRemainingValue =
-                          inst.value - (inst.paidAmount || 0);
-                        const proportion =
-                          instRemainingValue / totalPendingValue;
-                        const amountToApply = Math.min(
-                          remainingExcess * proportion,
-                          instRemainingValue
-                        );
-
-                        const instIndex = currentInstallments.findIndex(
-                          (i) => i.id === inst.id
-                        );
-                        const newPaidAmount =
-                          (inst.paidAmount || 0) + amountToApply;
-
-                        currentInstallments[instIndex] = {
-                          ...inst,
-                          paidAmount: newPaidAmount,
-                          status:
-                            newPaidAmount >= inst.value ? "paid" : "pending",
-                          paymentDate:
-                            newPaidAmount >= inst.value
-                              ? new Date().toISOString()
-                              : inst.paymentDate,
-                        };
-
-                        remainingExcess -= amountToApply;
-                      }
-                    });
-                  }
-                }
-              }
-            } else {
-              // Pagamento parcial
-              const newPaidAmount = (currentInst.paidAmount || 0) + paidAmount;
-              currentInstallments[currentInstIndex] = {
-                ...currentInst,
-                paidAmount: newPaidAmount,
-                status: newPaidAmount >= currentInst.value ? "paid" : "pending",
-                paymentDate:
-                  newPaidAmount >= currentInst.value
-                    ? new Date().toISOString()
-                    : currentInst.paymentDate,
-              };
-
-              // Distribui o valor restante nas próximas parcelas
-              const stillOwed = currentInst.value - newPaidAmount;
-              const pendingInstallments = currentInstallments
-                .slice(currentInstIndex + 1)
-                .filter((inst) => inst.status === "pending");
-
-              if (pendingInstallments.length > 0) {
-                const amountPerInstallment =
-                  stillOwed / pendingInstallments.length;
-                pendingInstallments.forEach((inst) => {
-                  const instIndex = currentInstallments.findIndex(
-                    (i) => i.id === inst.id
-                  );
-                  currentInstallments[instIndex] = {
-                    ...inst,
-                    value: inst.value + amountPerInstallment,
-                  };
-                });
-              }
-            }
-
-            return {
-              ...sale,
-              installments: currentInstallments,
-            };
-          }
-          return sale;
-        }),
-      };
-    }
-    case "ADD_CONDITIONAL":
-      return {
-        ...state,
-        conditionals: [...state.conditionals, action.payload],
-      };
-    case "UPDATE_CONDITIONAL_PRODUCT_RETURN": {
-      const { conditionalId, productBarcode } = action.payload;
-      return {
-        ...state,
-        conditionals: state.conditionals.map((conditional) => {
-          if (conditional.id === conditionalId) {
-            return {
-              ...conditional,
-              products: conditional.products.map((conditionalProduct) => {
-                if (conditionalProduct.product.barcode === productBarcode) {
-                  return {
-                    ...conditionalProduct,
-                    returned: true,
-                    returnedAt: new Date().toISOString(),
-                  };
-                }
-                return conditionalProduct;
-              }),
-            };
-          }
-          return conditional;
-        }),
-      };
-    }
-    case "COMPLETE_CONDITIONAL": {
-      const { conditionalId } = action.payload;
-      return {
-        ...state,
-        conditionals: state.conditionals.map((conditional) => {
-          if (conditional.id === conditionalId) {
-            const allReturned = conditional.products.every((p) => p.returned);
-            return {
-              ...conditional,
-              status: allReturned ? "returned" : "completed",
-              completedAt: new Date().toISOString(),
-            };
-          }
-          return conditional;
-        }),
-      };
-    }
-    default:
-      return state;
-  }
-};
-
-// --- Context ---
+// --- Contexto com Firebase ---
 interface AppContextType {
-  state: AppState;
-  dispatch: React.Dispatch<Action>;
+  products: Product[];
+  customers: Customer[];
+  paymentMethods: PaymentMethod[];
+  sales: Sale[];
+  conditionals: Conditional[];
+  addProduct: (payload: Omit<Product, "createdAt">) => Promise<void>;
+  addCustomer: (payload: Omit<Customer, "id" | "createdAt">) => Promise<void>;
+  addPaymentMethod: (payload: Omit<PaymentMethod, "id">) => Promise<void>;
+  addSale: (sale: Sale) => Promise<void>;
+  updateInstallmentStatus: (
+    saleId: string,
+    installmentId: string
+  ) => Promise<void>;
+  payInstallmentPartial: (
+    saleId: string,
+    installmentId: string,
+    paidAmount: number
+  ) => Promise<void>;
+  addConditional: (conditional: Conditional) => Promise<void>;
+  updateConditionalProductReturn: (
+    conditionalId: string,
+    productBarcode: string
+  ) => Promise<void>;
+  completeConditional: (conditionalId: string) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-// --- Provider ---
 export const AppProvider = ({ children }: { children: ReactNode }) => {
-  const [state, dispatch] = useReducer(appReducer, initialState);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>(
+    defaultPaymentMethods
+  );
+  const [sales, setSales] = useState<Sale[]>([]);
+  const [conditionals, setConditionals] = useState<Conditional[]>([]);
+
+  useEffect(() => {
+    const unsubProducts = onSnapshot(collection(db, "products"), (snapshot) => {
+      setProducts(
+        snapshot.docs.map(
+          (doc) => ({ ...(doc.data() as Product), id: doc.id } as Product)
+        )
+      );
+    });
+    const unsubCustomers = onSnapshot(
+      collection(db, "customers"),
+      (snapshot) => {
+        setCustomers(
+          snapshot.docs.map(
+            (doc) => ({ ...(doc.data() as Customer), id: doc.id } as Customer)
+          )
+        );
+      }
+    );
+    const unsubPaymentMethods = onSnapshot(
+      collection(db, "paymentMethods"),
+      (snapshot) => {
+        setPaymentMethods(
+          snapshot.docs.map(
+            (doc) =>
+              ({
+                ...(doc.data() as PaymentMethod),
+                id: doc.id,
+              } as PaymentMethod)
+          )
+        );
+      }
+    );
+    const unsubSales = onSnapshot(collection(db, "sales"), (snapshot) => {
+      setSales(
+        snapshot.docs.map(
+          (doc) => ({ ...(doc.data() as Sale), id: doc.id } as Sale)
+        )
+      );
+    });
+    const unsubConditionals = onSnapshot(
+      collection(db, "conditionals"),
+      (snapshot) => {
+        setConditionals(
+          snapshot.docs.map(
+            (doc) =>
+              ({ ...(doc.data() as Conditional), id: doc.id } as Conditional)
+          )
+        );
+      }
+    );
+
+    return () => {
+      unsubProducts();
+      unsubCustomers();
+      unsubPaymentMethods();
+      unsubSales();
+      unsubConditionals();
+    };
+  }, []);
+
+  const addProduct = async (payload: Omit<Product, "createdAt">) => {
+    await addDoc(collection(db, "products"), {
+      ...payload,
+      createdAt: new Date().toISOString(),
+    });
+  };
+  const addCustomer = async (payload: Omit<Customer, "id" | "createdAt">) => {
+    await addDoc(collection(db, "customers"), {
+      ...payload,
+      createdAt: new Date().toISOString(),
+    });
+  };
+  const addPaymentMethod = async (payload: Omit<PaymentMethod, "id">) => {
+    await addDoc(collection(db, "paymentMethods"), payload);
+  };
+  const addSale = async (sale: Sale) => {
+    await addDoc(collection(db, "sales"), sale);
+  };
+  const updateInstallmentStatus = async (
+    saleId: string,
+    installmentId: string
+  ) => {
+    const saleRef = doc(db, "sales", saleId);
+    const saleSnap = await getDoc(saleRef);
+    if (!saleSnap.exists()) return;
+    const sale = saleSnap.data() as Sale;
+    const installments = sale.installments?.map((inst) =>
+      inst.id === installmentId
+        ? { ...inst, status: "paid", paymentDate: new Date().toISOString() }
+        : inst
+    );
+    await updateDoc(saleRef, { installments });
+  };
+  const payInstallmentPartial = async (
+    saleId: string,
+    installmentId: string,
+    paidAmount: number
+  ) => {
+    const saleRef = doc(db, "sales", saleId);
+    const saleSnap = await getDoc(saleRef);
+    if (!saleSnap.exists()) return;
+    const sale = saleSnap.data() as Sale;
+    if (!sale.installments) return;
+    const currentInstallments = [...sale.installments];
+    const currentInstIndex = currentInstallments.findIndex(
+      (inst) => inst.id === installmentId
+    );
+    if (currentInstIndex === -1) return;
+    const currentInst = currentInstallments[currentInstIndex];
+    const remainingValue = currentInst.value - (currentInst.paidAmount || 0);
+
+    if (paidAmount >= remainingValue) {
+      currentInstallments[currentInstIndex] = {
+        ...currentInst,
+        paidAmount: currentInst.value,
+        status: "paid",
+        paymentDate: new Date().toISOString(),
+      };
+      if (paidAmount > remainingValue) {
+        let remainingExcess = paidAmount - remainingValue;
+        const pendingInstallments = currentInstallments
+          .slice(currentInstIndex + 1)
+          .filter((inst) => inst.status === "pending");
+        if (pendingInstallments.length > 0) {
+          const totalPendingValue = pendingInstallments.reduce(
+            (sum, inst) => sum + (inst.value - (inst.paidAmount || 0)),
+            0
+          );
+          if (remainingExcess >= totalPendingValue) {
+            pendingInstallments.forEach((inst) => {
+              const idx = currentInstallments.findIndex(
+                (i) => i.id === inst.id
+              );
+              currentInstallments[idx] = {
+                ...inst,
+                paidAmount: inst.value,
+                status: "paid",
+                paymentDate: new Date().toISOString(),
+              };
+            });
+          } else {
+            pendingInstallments.forEach((inst) => {
+              if (remainingExcess > 0) {
+                const instRemainingValue = inst.value - (inst.paidAmount || 0);
+                const proportion = instRemainingValue / totalPendingValue;
+                const amountToApply = Math.min(
+                  remainingExcess * proportion,
+                  instRemainingValue
+                );
+                const idx = currentInstallments.findIndex(
+                  (i) => i.id === inst.id
+                );
+                const newPaidAmount = (inst.paidAmount || 0) + amountToApply;
+                currentInstallments[idx] = {
+                  ...inst,
+                  paidAmount: newPaidAmount,
+                  status: newPaidAmount >= inst.value ? "paid" : "pending",
+                  paymentDate:
+                    newPaidAmount >= inst.value
+                      ? new Date().toISOString()
+                      : inst.paymentDate,
+                };
+                remainingExcess -= amountToApply;
+              }
+            });
+          }
+        }
+      }
+    } else {
+      const newPaidAmount = (currentInst.paidAmount || 0) + paidAmount;
+      currentInstallments[currentInstIndex] = {
+        ...currentInst,
+        paidAmount: newPaidAmount,
+        status: newPaidAmount >= currentInst.value ? "paid" : "pending",
+        paymentDate:
+          newPaidAmount >= currentInst.value
+            ? new Date().toISOString()
+            : currentInst.paymentDate,
+      };
+      const stillOwed = currentInst.value - newPaidAmount;
+      const pendingInstallments = currentInstallments
+        .slice(currentInstIndex + 1)
+        .filter((inst) => inst.status === "pending");
+      if (pendingInstallments.length > 0) {
+        const amountPerInstallment = stillOwed / pendingInstallments.length;
+        pendingInstallments.forEach((inst) => {
+          const idx = currentInstallments.findIndex((i) => i.id === inst.id);
+          currentInstallments[idx] = {
+            ...inst,
+            value: inst.value + amountPerInstallment,
+          };
+        });
+      }
+    }
+
+    await updateDoc(saleRef, { installments: currentInstallments });
+  };
+  const addConditional = async (conditional: Conditional) => {
+    await addDoc(collection(db, "conditionals"), conditional);
+  };
+  const updateConditionalProductReturn = async (
+    conditionalId: string,
+    productBarcode: string
+  ) => {
+    const condRef = doc(db, "conditionals", conditionalId);
+    const condSnap = await getDoc(condRef);
+    if (!condSnap.exists()) return;
+    const conditional = condSnap.data() as Conditional;
+    const products = conditional.products.map((cp) =>
+      cp.product.barcode === productBarcode
+        ? { ...cp, returned: true, returnedAt: new Date().toISOString() }
+        : cp
+    );
+    await updateDoc(condRef, { products });
+  };
+  const completeConditional = async (conditionalId: string) => {
+    const condRef = doc(db, "conditionals", conditionalId);
+    const condSnap = await getDoc(condRef);
+    if (!condSnap.exists()) return;
+    const conditional = condSnap.data() as Conditional;
+    const allReturned = conditional.products.every((p) => p.returned);
+    await updateDoc(condRef, {
+      status: allReturned ? "returned" : "completed",
+      completedAt: new Date().toISOString(),
+    });
+  };
 
   return (
-    <AppContext.Provider value={{ state, dispatch }}>
+    <AppContext.Provider
+      value={{
+        products,
+        customers,
+        paymentMethods,
+        sales,
+        conditionals,
+        addProduct,
+        addCustomer,
+        addPaymentMethod,
+        addSale,
+        updateInstallmentStatus,
+        payInstallmentPartial,
+        addConditional,
+        updateConditionalProductReturn,
+        completeConditional,
+      }}
+    >
       {children}
     </AppContext.Provider>
   );
 };
 
-// --- Hook ---
 export const useAppContext = () => {
   const context = useContext(AppContext);
-  if (context === undefined) {
-    throw new Error("useAppContext must be used within an AppProvider");
-  }
+  if (!context)
+    throw new Error("useAppContext must be used within AppProvider");
   return context;
 };

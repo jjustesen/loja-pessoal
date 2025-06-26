@@ -22,8 +22,7 @@ import { ConditionalReportModal } from "./ConditionalReportModal";
 import type { Conditional } from "../../types";
 
 export default function ConditionalsPage() {
-  const { state } = useAppContext();
-  const { conditionals } = state;
+  const { conditionals } = useAppContext();
 
   const createModal = useDisclosure();
   const returnModal = useDisclosure();

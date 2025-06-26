@@ -18,15 +18,14 @@ import { useState } from "react";
 import { useAppContext } from "../../lib/store";
 
 export default function ProductsPage() {
-  const { state, dispatch } = useAppContext();
-  const { products } = state;
+  const { products, addProduct } = useAppContext();
   const [barcode, setBarcode] = useState("");
   const [name, setName] = useState("");
   const [costPrice, setCostPrice] = useState("");
   const [sellingPrice, setSellingPrice] = useState("");
   const toast = useToast();
 
-  const handleAddProduct = () => {
+  const handleAddProduct = async () => {
     if (!barcode || !name || !costPrice || !sellingPrice) {
       toast({
         title: "Erro",
@@ -38,14 +37,11 @@ export default function ProductsPage() {
       return;
     }
 
-    dispatch({
-      type: "ADD_PRODUCT",
-      payload: {
-        barcode,
-        name,
-        costPrice: parseFloat(costPrice),
-        sellingPrice: parseFloat(sellingPrice),
-      },
+    await addProduct({
+      barcode,
+      name,
+      costPrice: parseFloat(costPrice),
+      sellingPrice: parseFloat(sellingPrice),
     });
 
     // Clear form

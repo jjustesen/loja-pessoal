@@ -49,8 +49,7 @@ export function ConditionalReportModal({
   isOpen,
   onClose,
 }: ConditionalReportModalProps) {
-  const { state, dispatch } = useAppContext();
-  const { conditionals, paymentMethods } = state;
+  const { conditionals, paymentMethods, addSale } = useAppContext();
   const toast = useToast();
 
   const [selectedConditionalForSale, setSelectedConditionalForSale] =
@@ -80,7 +79,7 @@ export function ConditionalReportModal({
     0
   );
 
-  const handleCreateSaleFromConditional = () => {
+  const handleCreateSaleFromConditional = async () => {
     if (!selectedConditionalForSale) {
       toast({
         title: "Erro",
@@ -162,10 +161,7 @@ export function ConditionalReportModal({
       createdAt: new Date().toISOString(),
     };
 
-    dispatch({
-      type: "ADD_SALE",
-      payload: newSale,
-    });
+    await addSale(newSale);
 
     toast({
       title: "Venda criada",
@@ -179,32 +175,6 @@ export function ConditionalReportModal({
 
     setSelectedConditionalForSale("");
     setSelectedPaymentMethod("");
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "active":
-        return "blue";
-      case "returned":
-        return "green";
-      case "completed":
-        return "orange";
-      default:
-        return "gray";
-    }
-  };
-
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case "active":
-        return "Ativo";
-      case "returned":
-        return "Devolvido";
-      case "completed":
-        return "Finalizado";
-      default:
-        return "Desconhecido";
-    }
   };
 
   // Condicionais com produtos não devolvidos

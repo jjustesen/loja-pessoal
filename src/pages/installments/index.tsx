@@ -35,8 +35,8 @@ interface ExtendedInstallment extends Installment {
 }
 
 export default function InstallmentsPage() {
-  const { state, dispatch } = useAppContext();
-  const { sales } = state;
+  const { sales, updateInstallmentStatus, payInstallmentPartial } =
+    useAppContext();
   const toast = useToast();
   const { isOpen, onOpen, onClose } = useDisclosure();
 
@@ -60,11 +60,11 @@ export default function InstallmentsPage() {
       }))
     );
 
-  const handlePayInstallment = (saleId: string, installmentId: string) => {
-    dispatch({
-      type: "UPDATE_INSTALLMENT_STATUS",
-      payload: { saleId, installmentId },
-    });
+  const handlePayInstallment = async (
+    saleId: string,
+    installmentId: string
+  ) => {
+    await updateInstallmentStatus(saleId, installmentId);
     toast({
       title: "Sucesso!",
       description: "Parcela marcada como paga.",
@@ -88,7 +88,7 @@ export default function InstallmentsPage() {
     onOpen();
   };
 
-  const handlePartialPayment = () => {
+  const handlePartialPayment = async () => {
     if (!selectedInstallment || paymentAmount <= 0) {
       toast({
         title: "Erro!",
@@ -100,14 +100,11 @@ export default function InstallmentsPage() {
       return;
     }
 
-    dispatch({
-      type: "PAY_INSTALLMENT_PARTIAL",
-      payload: {
-        saleId: selectedInstallment.saleId,
-        installmentId: selectedInstallment.installmentId,
-        paidAmount: paymentAmount,
-      },
-    });
+    await payInstallmentPartial(
+      selectedInstallment.saleId,
+      selectedInstallment.installmentId,
+      paymentAmount
+    );
 
     let description = "";
     const remainingAmount =

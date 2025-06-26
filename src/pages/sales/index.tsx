@@ -27,8 +27,8 @@ import { useAppContext } from "../../lib/store";
 import { type PaymentCondition, type Product, type Sale } from "../../types";
 
 export default function SalesPage() {
-  const { state, dispatch } = useAppContext();
-  const { customers, products, paymentMethods, sales } = state;
+  const { customers, products, paymentMethods, sales, addSale } =
+    useAppContext();
   const toast = useToast();
 
   // Form state
@@ -63,7 +63,7 @@ export default function SalesPage() {
 
   const totalValue = cart.reduce((acc, p) => acc + p.sellingPrice, 0);
 
-  const handleCreateSale = () => {
+  const handleCreateSale = async () => {
     if (!selectedCustomerId) {
       toast({
         title: "Erro",
@@ -137,7 +137,7 @@ export default function SalesPage() {
       });
     }
 
-    dispatch({ type: "ADD_SALE", payload: newSale });
+    await addSale(newSale);
 
     // Reset form
     setSelectedCustomerId(null);
