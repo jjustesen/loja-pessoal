@@ -120,9 +120,8 @@ export function ReturnConditionalModal({
       title: returned
         ? "Produto marcado como não devolvido"
         : "Produto devolvido",
-      description: `${product?.product.name} ${
-        returned ? "desmarcado" : "marcado como devolvido"
-      }.`,
+      description: `${product?.product.name} ${returned ? "desmarcado" : "marcado como devolvido"
+        }.`,
       status: "success",
       duration: 2000,
       isClosable: true,

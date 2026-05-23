@@ -10,19 +10,28 @@ import InstallmentsPage from "./pages/installments";
 import ConditionalsPage from "./pages/conditionals";
 
 const Layout = () => (
-  <Box>
-    <Flex
-      as="nav"
-      bg="teal.500"
-      color="white"
-      padding={4}
-      justifyContent="space-between"
-      alignItems="center"
-    >
-      <Heading size="md">Loja Alzira</Heading>
-      <Nav />
-    </Flex>
-    <Box p={4}>
+  <Box minH="100vh" bg="#f8f2f7" color="#2d2d2d" fontFamily="'Inter', system-ui, sans-serif">
+    <Box px={4} py={4}>
+      <Flex
+        as="nav"
+        bg="rgba(255, 255, 255, 0.85)"
+        backdropFilter="blur(10px)"
+        border="1px solid rgba(223, 206, 223, 0.6)"
+        boxShadow="0 4px 20px rgba(113, 77, 109, 0.06)"
+        borderRadius="16px"
+        padding="1rem 1.5rem"
+        justifyContent="space-between"
+        alignItems="center"
+        maxW="1240px"
+        mx="auto"
+      >
+        <Heading size="md" color="#5e3860" letterSpacing="-0.01em" fontWeight="800">
+          ✨ Loja Alzira
+        </Heading>
+        <Nav />
+      </Flex>
+    </Box>
+    <Box p={4} maxW="1240px" mx="auto">
       <Outlet />
     </Box>
   </Box>

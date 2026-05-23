@@ -13,6 +13,7 @@ import {
   HStack,
   Text,
   useDisclosure,
+  useToast,
 } from "@chakra-ui/react";
 import { useState } from "react";
 import { useAppContext } from "../../lib/store";
@@ -22,7 +23,8 @@ import { ConditionalReportModal } from "./ConditionalReportModal";
 import type { Conditional } from "../../types";
 
 export default function ConditionalsPage() {
-  const { conditionals } = useAppContext();
+  const { conditionals, deleteConditional } = useAppContext();
+  const toast = useToast();
 
   const createModal = useDisclosure();
   const returnModal = useDisclosure();
@@ -116,9 +118,23 @@ export default function ConditionalsPage() {
                     <Button
                       size="sm"
                       colorScheme="orange"
+                      mr={2}
                       onClick={() => handleReturnConditional(conditional)}
                     >
                       Processar Devolução
+                    </Button>
+                    <Button
+                      size="sm"
+                      colorScheme="red"
+                      variant="outline"
+                      onClick={async () => {
+                        if (window.confirm("Tem certeza que deseja excluir este condicional?")) {
+                          await deleteConditional(conditional.id);
+                          toast({ title: "Excluído", status: "info", duration: 2000 });
+                        }
+                      }}
+                    >
+                      Excluir
                     </Button>
                   </Td>
                 </Tr>
@@ -145,6 +161,7 @@ export default function ConditionalsPage() {
                 <Th>Status</Th>
                 <Th>Data de Criação</Th>
                 <Th>Data de Finalização</Th>
+                <Th>Ações</Th>
               </Tr>
             </Thead>
             <Tbody>
@@ -162,6 +179,21 @@ export default function ConditionalsPage() {
                   <Td>
                     {conditional.completedAt &&
                       new Date(conditional.completedAt).toLocaleString()}
+                  </Td>
+                  <Td>
+                    <Button
+                      size="sm"
+                      colorScheme="red"
+                      variant="outline"
+                      onClick={async () => {
+                        if (window.confirm("Tem certeza que deseja excluir este condicional do histórico?")) {
+                          await deleteConditional(conditional.id);
+                          toast({ title: "Excluído", status: "info", duration: 2000 });
+                        }
+                      }}
+                    >
+                      Excluir
+                    </Button>
                   </Td>
                 </Tr>
               ))}

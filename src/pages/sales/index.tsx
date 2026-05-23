@@ -27,7 +27,7 @@ import { useAppContext } from "../../lib/store";
 import { type PaymentCondition, type Product, type Sale } from "../../types";
 
 export default function SalesPage() {
-  const { customers, products, paymentMethods, sales, addSale } =
+  const { customers, products, paymentMethods, sales, addSale, deleteSale } =
     useAppContext();
   const toast = useToast();
 
@@ -280,6 +280,7 @@ export default function SalesPage() {
             <Th>Condição</Th>
             <Th isNumeric>Valor Total</Th>
             <Th>Data</Th>
+            <Th>Ações</Th>
           </Tr>
         </Thead>
         <Tbody>
@@ -295,6 +296,21 @@ export default function SalesPage() {
               </Td>
               <Td isNumeric>{sale.totalValue.toFixed(2)}</Td>
               <Td>{new Date(sale.createdAt).toLocaleString()}</Td>
+              <Td>
+                <Button 
+                  size="sm" 
+                  colorScheme="red" 
+                  variant="outline"
+                  onClick={async () => {
+                    if (window.confirm("Tem certeza que deseja excluir esta venda?")) {
+                      await deleteSale(sale.id);
+                      toast({ title: "Excluída", status: "info", duration: 2000 });
+                    }
+                  }}
+                >
+                  Excluir
+                </Button>
+              </Td>
             </Tr>
           ))}
         </Tbody>

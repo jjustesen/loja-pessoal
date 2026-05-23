@@ -18,6 +18,7 @@ import {
   doc,
   addDoc,
   updateDoc,
+  deleteDoc,
   onSnapshot,
   getDoc,
 } from "firebase/firestore";
@@ -58,6 +59,10 @@ interface AppContextType {
     productBarcode: string
   ) => Promise<void>;
   completeConditional: (conditionalId: string) => Promise<void>;
+  deleteProduct: (id: string) => Promise<void>;
+  deleteCustomer: (id: string) => Promise<void>;
+  deleteSale: (id: string) => Promise<void>;
+  deleteConditional: (id: string) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -297,6 +302,19 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       completedAt: new Date().toISOString(),
     });
   };
+  
+  const deleteProduct = async (id: string) => {
+    await deleteDoc(doc(db, "products", id));
+  };
+  const deleteCustomer = async (id: string) => {
+    await deleteDoc(doc(db, "customers", id));
+  };
+  const deleteSale = async (id: string) => {
+    await deleteDoc(doc(db, "sales", id));
+  };
+  const deleteConditional = async (id: string) => {
+    await deleteDoc(doc(db, "conditionals", id));
+  };
 
   return (
     <AppContext.Provider
@@ -315,6 +333,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         addConditional,
         updateConditionalProductReturn,
         completeConditional,
+        deleteProduct,
+        deleteCustomer,
+        deleteSale,
+        deleteConditional,
       }}
     >
       {children}

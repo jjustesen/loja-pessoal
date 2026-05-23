@@ -16,9 +16,10 @@ import {
 } from "@chakra-ui/react";
 import { useState } from "react";
 import { useAppContext } from "../../lib/store";
+import { maskPhone } from "../../lib/masks";
 
 export default function CustomersPage() {
-  const { customers, addCustomer } = useAppContext();
+  const { customers, addCustomer, deleteCustomer } = useAppContext();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
@@ -69,7 +70,7 @@ export default function CustomersPage() {
           <FormLabel>Telefone</FormLabel>
           <Input
             value={phone}
-            onChange={(e) => setPhone(e.target.value)}
+            onChange={(e) => setPhone(maskPhone(e.target.value))}
             placeholder="(99) 99999-9999"
           />
         </FormControl>
@@ -97,6 +98,7 @@ export default function CustomersPage() {
             <Th>Telefone</Th>
             <Th>E-mail</Th>
             <Th>Data de Cadastro</Th>
+            <Th>Ações</Th>
           </Tr>
         </Thead>
         <Tbody>
@@ -106,6 +108,21 @@ export default function CustomersPage() {
               <Td>{customer.phone}</Td>
               <Td>{customer.email}</Td>
               <Td>{new Date(customer.createdAt).toLocaleString()}</Td>
+              <Td>
+                <Button 
+                  size="sm" 
+                  colorScheme="red" 
+                  variant="outline"
+                  onClick={async () => {
+                    if (window.confirm("Tem certeza que deseja excluir este cliente?")) {
+                      await deleteCustomer(customer.id);
+                      toast({ title: "Excluído", status: "info", duration: 2000 });
+                    }
+                  }}
+                >
+                  Excluir
+                </Button>
+              </Td>
             </Tr>
           ))}
         </Tbody>
