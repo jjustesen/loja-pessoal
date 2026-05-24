@@ -71,6 +71,12 @@ export default function ProductsPage() {
             value={barcode}
             onChange={(e) => setBarcode(e.target.value)}
             placeholder="Digite ou escaneie o código de barras"
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+              }
+            }}
           />
         </FormControl>
         <FormControl>
@@ -133,7 +139,7 @@ export default function ProductsPage() {
                   variant="outline"
                   onClick={async () => {
                     if (window.confirm("Tem certeza que deseja excluir este produto?")) {
-                      await deleteProduct(product.id!); // Assuming it has ID assigned by Firebase, even if type says otherwise it's usually mapped 
+                      await deleteProduct((product as any).id ?? product.barcode);
                       toast({ title: "Excluído", status: "info", duration: 2000 });
                     }
                   }}

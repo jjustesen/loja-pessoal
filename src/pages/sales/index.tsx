@@ -182,8 +182,10 @@ export default function SalesPage() {
               value={barcode}
               onChange={(e) => setBarcode(e.target.value)}
               placeholder="Digite ou escaneie o código de barras"
+              autoFocus
               onKeyDown={(e) => {
-                if (e.key === "Enter") {
+                if (e.key === "Enter" || (e.ctrlKey && e.key.toLowerCase() === "h")) {
+                  e.preventDefault();
                   handleAddProductToCart();
                 }
               }}

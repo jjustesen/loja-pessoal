@@ -53,17 +53,6 @@ export default function DashboardPage() {
         <StatCard title="Condicionais Ativos" value={activeConditionals.toString()} icon={FiClock} color="orange" />
       </SimpleGrid>
       
-      <Box 
-        mt={10} 
-        bg="white" 
-        borderRadius="24px" 
-        p={8} 
-        boxShadow="0 18px 50px rgba(113, 77, 109, 0.08)"
-        border="1px solid rgba(223, 206, 223, 0.8)"
-      >
-        <Heading size="md" color="#5e3860" mb={4}>Avisos Recentes</Heading>
-        <Text color="#6a5a6a">Seu painel administrativo agora utiliza o design atualizado com efeito Glassmorphism e novas paletas de cores para combinar com a sua Landing Page. Os dados exibidos acima são calculados em tempo real, baseados nas suas vendas, clientes e condicionais ativos.</Text>
-      </Box>
     </Box>
   );
 }

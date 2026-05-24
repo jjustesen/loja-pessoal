@@ -181,7 +181,8 @@ export function CreateConditionalModal({
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
+    if (e.key === "Enter" || (e.ctrlKey && e.key.toLowerCase() === "h")) {
+      e.preventDefault();
       handleBarcodeSubmit();
     }
   };
