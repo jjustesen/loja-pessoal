@@ -16,9 +16,10 @@ import {
 } from "@chakra-ui/react";
 import { useState } from "react";
 import { useAppContext } from "../../lib/store";
+import { maskCurrency, unmaskCurrency } from "../../lib/masks";
 
 export default function ProductsPage() {
-  const { products, addProduct } = useAppContext();
+  const { products, addProduct, deleteProduct } = useAppContext();
   const [barcode, setBarcode] = useState("");
   const [name, setName] = useState("");
   const [costPrice, setCostPrice] = useState("");
@@ -40,8 +41,8 @@ export default function ProductsPage() {
     await addProduct({
       barcode,
       name,
-      costPrice: parseFloat(costPrice),
-      sellingPrice: parseFloat(sellingPrice),
+      costPrice: unmaskCurrency(costPrice),
+      sellingPrice: unmaskCurrency(sellingPrice),
     });
 
     // Clear form
@@ -70,6 +71,12 @@ export default function ProductsPage() {
             value={barcode}
             onChange={(e) => setBarcode(e.target.value)}
             placeholder="Digite ou escaneie o código de barras"
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+              }
+            }}
           />
         </FormControl>
         <FormControl>
@@ -85,19 +92,17 @@ export default function ProductsPage() {
         <FormControl>
           <FormLabel>Preço de Custo</FormLabel>
           <Input
-            type="number"
             value={costPrice}
-            onChange={(e) => setCostPrice(e.target.value)}
-            placeholder="Ex: 5.50"
+            onChange={(e) => setCostPrice(maskCurrency(e.target.value))}
+            placeholder="R$ 0,00"
           />
         </FormControl>
         <FormControl>
           <FormLabel>Preço de Venda</FormLabel>
           <Input
-            type="number"
             value={sellingPrice}
-            onChange={(e) => setSellingPrice(e.target.value)}
-            placeholder="Ex: 8.00"
+            onChange={(e) => setSellingPrice(maskCurrency(e.target.value))}
+            placeholder="R$ 0,00"
           />
         </FormControl>
       </Flex>
@@ -116,6 +121,7 @@ export default function ProductsPage() {
             <Th isNumeric>Preço de Custo</Th>
             <Th isNumeric>Preço de Venda</Th>
             <Th>Data de Cadastro</Th>
+            <Th>Ações</Th>
           </Tr>
         </Thead>
         <Tbody>
@@ -126,6 +132,21 @@ export default function ProductsPage() {
               <Td isNumeric>{product.costPrice.toFixed(2)}</Td>
               <Td isNumeric>{product.sellingPrice.toFixed(2)}</Td>
               <Td>{new Date(product.createdAt).toLocaleString()}</Td>
+              <Td>
+                <Button 
+                  size="sm" 
+                  colorScheme="red" 
+                  variant="outline"
+                  onClick={async () => {
+                    if (window.confirm("Tem certeza que deseja excluir este produto?")) {
+                      await deleteProduct((product as any).id ?? product.barcode);
+                      toast({ title: "Excluído", status: "info", duration: 2000 });
+                    }
+                  }}
+                >
+                  Excluir
+                </Button>
+              </Td>
             </Tr>
           ))}
         </Tbody>

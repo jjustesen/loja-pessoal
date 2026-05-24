@@ -13,7 +13,28 @@ type NavLinkProps = ChakraLinkProps & RouterLinkProps;
 const NavLink = (props: NavLinkProps) => {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore
-  return <ChakraLink as={RouterLink} {...props} />;
+  return (
+    <ChakraLink
+      as={RouterLink}
+      px="1.1rem"
+      py="0.55rem"
+      borderRadius="999px"
+      fontWeight="600"
+      fontSize="0.9rem"
+      textDecoration="none"
+      color="#7c3f60"
+      bg="transparent"
+      border="1px solid transparent"
+      transition="background 0.2s, border-color 0.2s, color 0.2s"
+      _hover={{
+        bg: "#f5d3e2",
+        borderColor: "#d19ab4",
+        color: "#5e3860",
+        textDecoration: "none",
+      }}
+      {...props}
+    />
+  );
 };
 
 export function Nav() {

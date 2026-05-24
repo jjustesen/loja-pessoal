@@ -12,12 +12,15 @@ import type {
   Sale,
   Conditional,
 } from "../types";
-import { db } from "./firebase";
+import { db, auth } from "./firebase";
+import { onAuthStateChanged } from "firebase/auth";
+import type { User } from "firebase/auth";
 import {
   collection,
   doc,
   addDoc,
   updateDoc,
+  deleteDoc,
   onSnapshot,
   getDoc,
 } from "firebase/firestore";
@@ -58,6 +61,12 @@ interface AppContextType {
     productBarcode: string
   ) => Promise<void>;
   completeConditional: (conditionalId: string) => Promise<void>;
+  deleteProduct: (id: string) => Promise<void>;
+  deleteCustomer: (id: string) => Promise<void>;
+  deleteSale: (id: string) => Promise<void>;
+  deleteConditional: (id: string) => Promise<void>;
+  user: User | null;
+  authLoading: boolean;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -70,8 +79,28 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   );
   const [sales, setSales] = useState<Sale[]>([]);
   const [conditionals, setConditionals] = useState<Conditional[]>([]);
+  
+  const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
 
   useEffect(() => {
+    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setAuthLoading(false);
+    });
+    return () => unsubscribeAuth();
+  }, []);
+
+  useEffect(() => {
+    if (!user) {
+      // Clear data if logged out
+      setProducts([]);
+      setCustomers([]);
+      setSales([]);
+      setConditionals([]);
+      return;
+    }
+
     const unsubProducts = onSnapshot(collection(db, "products"), (snapshot) => {
       setProducts(
         snapshot.docs.map(
@@ -129,7 +158,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       unsubSales();
       unsubConditionals();
     };
-  }, []);
+  }, [user]);
 
   const addProduct = async (payload: Omit<Product, "createdAt">) => {
     await addDoc(collection(db, "products"), {
@@ -297,6 +326,19 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       completedAt: new Date().toISOString(),
     });
   };
+  
+  const deleteProduct = async (id: string) => {
+    await deleteDoc(doc(db, "products", id));
+  };
+  const deleteCustomer = async (id: string) => {
+    await deleteDoc(doc(db, "customers", id));
+  };
+  const deleteSale = async (id: string) => {
+    await deleteDoc(doc(db, "sales", id));
+  };
+  const deleteConditional = async (id: string) => {
+    await deleteDoc(doc(db, "conditionals", id));
+  };
 
   return (
     <AppContext.Provider
@@ -315,6 +357,12 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         addConditional,
         updateConditionalProductReturn,
         completeConditional,
+        deleteProduct,
+        deleteCustomer,
+        deleteSale,
+        deleteConditional,
+        user,
+        authLoading,
       }}
     >
       {children}
